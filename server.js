@@ -96,7 +96,8 @@ async function getExchangeStatuses(symbol) {
     withExchangeError("Bitget", symbol, fetchBitget(symbol)),
     withExchangeError("Binance", symbol, fetchBinance(symbol)),
     withExchangeError("Bybit", symbol, fetchBybit(symbol)),
-    withExchangeError("OKX", symbol, fetchOkx(symbol))
+    withExchangeError("OKX", symbol, fetchOkx(symbol)),
+    withExchangeError("Hotcoin", symbol, fetchHotcoin(symbol))
   ];
   const rows = (await Promise.all(tasks)).flat();
 
@@ -274,6 +275,28 @@ async function fetchOkx(symbol) {
     withdrawStatus: chain.canWd ? "open" : "closed",
     updatedAt: formatDateTime(new Date()),
     note: chain.needTag ? "需要 Memo/Tag" : ""
+  }));
+}
+
+async function fetchHotcoin(symbol) {
+  const data = await getJson(`https://api.hotcoinfin.com/v1/common/currencies?currency=${encodeURIComponent(symbol)}`);
+  if (data.code !== 200) throw new Error(data.msg || "Hotcoin request failed");
+
+  const coin = (data.data || []).find((item) => item.currency === symbol);
+  if (!coin) return [];
+
+  const networks = Array.isArray(coin.networkList) && coin.networkList.length
+    ? coin.networkList
+    : [coin];
+
+  return networks.map((network) => ({
+    exchange: "Hotcoin",
+    symbol,
+    network: normalizeNetwork(network.network || network.chain || symbol),
+    depositStatus: network.depositEnable ? "open" : "closed",
+    withdrawStatus: network.withdrawEnable ? "open" : "closed",
+    updatedAt: formatDateTime(new Date()),
+    note: network.needTag ? "Need Memo/Tag" : ""
   }));
 }
 
