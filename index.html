@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>充值提币状态检查</title>
+  <style>
+    :root {
+      --page: #f5f7fb;
+      --panel: #fff;
+      --line: #e7ecf3;
+      --muted: #8a94a3;
+      --text: #1f2937;
+      --blue: #2684ff;
+      --blue-soft: #e9f5ff;
+      --blue-line: #a7d5ff;
+      --green: #30c85a;
+      --red: #ff4d5f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 68px;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .refresh {
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      color: var(--blue);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .refresh.loading svg {
+      animation: spin 0.9s linear infinite;
+    }
+
+    .updated {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .symbol-input {
+      width: 180px;
+      height: 38px;
+      border: 1px solid #d7dfea;
+      border-radius: 6px;
+      padding: 0 12px;
+      color: var(--text);
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    .symbol-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(38, 132, 255, 0.12);
+    }
+
+    .exchange-select {
+      width: 160px;
+      height: 38px;
+      border: 1px solid #d7dfea;
+      border-radius: 6px;
+      padding: 0 12px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    .exchange-select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(38, 132, 255, 0.12);
+    }
+
+    .query-button {
+      height: 38px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 18px;
+      color: #fff;
+      background: var(--blue);
+      cursor: pointer;
+    }
+
+    .query-button:disabled,
+    .refresh:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .content {
+      flex: 1;
+      padding: 18px 28px 28px;
+      overflow: hidden;
+    }
+
+    .notice {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 72px;
+      margin-bottom: 18px;
+      padding: 14px 28px;
+      border: 1px solid var(--blue-line);
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: #445066;
+    }
+
+    .notice-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+    }
+
+    .notice-close {
+      margin-left: auto;
+      border: 0;
+      color: #9aa3af;
+      background: transparent;
+      cursor: pointer;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .table-wrap {
+      height: calc(100vh - 178px);
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      height: 52px;
+      padding: 0 14px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #273142;
+      background: #fbfcfe;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    td {
+      color: #626c7a;
+      font-size: 15px;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    .exchange {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 22px;
+      height: 22px;
+      display: inline-grid;
+      flex: 0 0 auto;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      border-radius: 50%;
+      background: #fff;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      height: 30px;
+      max-width: 100%;
+      padding: 0 10px;
+      border: 1px solid #dce4ee;
+      border-radius: 4px;
+      background: #fff;
+      color: #626c7a;
+      font-size: 13px;
+    }
+
+    .coin {
+      font-weight: 700;
+      color: #263241;
+    }
+
+    .status {
+      font-weight: 700;
+    }
+
+    .status.open {
+      color: var(--green);
+    }
+
+    .status.closed {
+      color: var(--red);
+    }
+
+    .status.unknown {
+      color: var(--muted);
+    }
+
+    .note {
+      display: block;
+      max-width: 100%;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .note details {
+      max-width: 100%;
+    }
+
+    .note summary {
+      cursor: pointer;
+      color: #526070;
+      list-style-position: inside;
+    }
+
+    .note pre {
+      max-height: 220px;
+      margin: 8px 0 0;
+      padding: 10px;
+      overflow: auto;
+      border: 1px solid #dce4ee;
+      border-radius: 4px;
+      background: #f8fafc;
+      color: #334155;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .empty,
+    .error {
+      padding: 42px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .error {
+      color: var(--red);
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        min-height: auto;
+        align-items: stretch;
+        flex-wrap: wrap;
+        padding: 14px;
+      }
+
+      .title {
+        width: calc(100% - 92px);
+        font-size: 17px;
+      }
+
+      .updated {
+        display: none;
+      }
+
+      .toolbar {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .symbol-input {
+        width: 100%;
+        flex: 1;
+      }
+
+      .exchange-select {
+        width: 100%;
+      }
+
+      .content {
+        padding: 12px;
+      }
+
+      .notice {
+        min-height: 64px;
+        padding: 12px 14px;
+      }
+
+      .table-wrap {
+        height: calc(100vh - 190px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1 class="title" id="statusTitle">USDT 充值提币状态</h1>
+      <button class="refresh" id="refreshStatus" type="button" aria-label="刷新状态" title="刷新状态">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <span class="updated" id="updatedText">更新于 --</span>
+
+      <form class="toolbar" id="statusForm">
+        <input
+          class="symbol-input"
+          id="symbolInput"
+          type="text"
+          value="USDT"
+          maxlength="16"
+          autocomplete="off"
+          aria-label="币种"
+          placeholder="输入币种，如 USDT"
+        />
+        <select class="exchange-select" id="exchangeFilter" aria-label="交易所筛选">
+          <option value="ALL">全部交易所</option>
+          <option value="Binance">Binance</option>
+          <option value="Gate">Gate</option>
+          <option value="Bitget">Bitget</option>
+          <option value="Bybit">Bybit</option>
+          <option value="OKX">OKX</option>
+        </select>
+        <button class="query-button" id="queryButton" type="submit">查询</button>
+      </form>
+    </header>
+
+    <section class="content" aria-labelledby="statusTitle">
+      <div class="notice" id="notice">
+        <span class="notice-icon">i</span>
+        <span>已支持 Binance、Gate、Bitget、Bybit、OKX。输入币种后可检查各交易所充值和提币状态。</span>
+        <button class="notice-close" id="closeNotice" type="button" aria-label="关闭提示">×</button>
+      </div>
+
+      <div class="table-wrap" id="tableMount"></div>
+    </section>
+  </main>
+
+  <script>
+    const AUTO_REFRESH_MS = 15000;
+    const EXCHANGE_LOGOS = {
+      Binance: "https://www.google.com/s2/favicons?domain=binance.com&sz=64",
+      Gate: "https://www.google.com/s2/favicons?domain=gate.io&sz=64",
+      Bitget: "https://www.google.com/s2/favicons?domain=bitget.com&sz=64",
+      Bybit: "https://www.google.com/s2/favicons?domain=bybit.com&sz=64",
+      OKX: "https://www.google.com/s2/favicons?domain=okx.com&sz=64"
+    };
+
+    const tableMount = document.querySelector("#tableMount");
+    const refreshButton = document.querySelector("#refreshStatus");
+    const queryButton = document.querySelector("#queryButton");
+    const updatedText = document.querySelector("#updatedText");
+    const symbolInput = document.querySelector("#symbolInput");
+    const exchangeFilter = document.querySelector("#exchangeFilter");
+    const statusForm = document.querySelector("#statusForm");
+    const statusTitle = document.querySelector("#statusTitle");
+    let refreshTimer = null;
+
+    document.querySelector("#closeNotice").addEventListener("click", () => {
+      document.querySelector("#notice").hidden = true;
+    });
+
+    refreshButton.addEventListener("click", loadStatuses);
+
+    statusForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadStatuses();
+    });
+
+    exchangeFilter.addEventListener("change", loadStatuses);
+
+    symbolInput.addEventListener("input", () => {
+      symbolInput.value = symbolInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        clearRefreshTimer();
+        return;
+      }
+
+      loadStatuses();
+    });
+
+    async function loadStatuses() {
+      clearRefreshTimer();
+      const symbol = symbolInput.value.trim().toUpperCase() || "USDT";
+      symbolInput.value = symbol;
+      updateTitle(symbol);
+      setLoading(true);
+
+      try {
+        const result = await fetchRechargeWithdrawStatus({ symbol });
+        const rows = filterRowsByExchange(result.rows || [], exchangeFilter.value);
+
+        renderStatusTable(rows, symbol, exchangeFilter.value);
+        updatedText.textContent = `更新于 ${result.updatedAt || formatDateTime(new Date())}`;
+      } catch (error) {
+        tableMount.innerHTML = `<div class="error">状态查询失败，请稍后重试</div>`;
+      } finally {
+        setLoading(false);
+        scheduleAutoRefresh();
+      }
+    }
+
+    function scheduleAutoRefresh() {
+      if (document.hidden) {
+        return;
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        loadStatuses();
+      }, AUTO_REFRESH_MS);
+    }
+
+    function clearRefreshTimer() {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    function updateTitle(symbol) {
+      statusTitle.textContent = `${symbol} 充值提币状态`;
+      document.title = `${symbol} 充值提币状态检查`;
+    }
+
+    async function fetchRechargeWithdrawStatus(params) {
+      const res = await fetch(`/api/exchange-status?symbol=${encodeURIComponent(params.symbol)}`);
+      if (!res.ok) throw new Error("request failed");
+      return await res.json();
+    }
+
+    function filterRowsByExchange(rows, exchange) {
+      if (exchange === "ALL") {
+        return rows;
+      }
+
+      return rows.filter((item) => item.exchange === exchange);
+    }
+
+    function renderStatusTable(rows, symbol, exchange) {
+      if (!rows.length) {
+        const exchangeText = exchange === "ALL" ? "全部交易所" : exchange;
+        tableMount.innerHTML = `<div class="empty">暂无 ${escapeHtml(symbol)} 在 ${escapeHtml(exchangeText)} 的充值/提币状态</div>`;
+        return;
+      }
+
+      tableMount.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>交易所</th>
+              <th>币种</th>
+              <th>网络</th>
+              <th>充值状态</th>
+              <th>提现状态</th>
+              <th>更新时间</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(renderStatusRow).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderStatusRow(item) {
+      return `
+        <tr>
+          <td>
+            <span class="exchange">
+              ${renderExchangeLogo(item.exchange)}
+              <span>${escapeHtml(item.exchange)}</span>
+            </span>
+          </td>
+          <td><span class="coin">${escapeHtml(item.symbol)}</span></td>
+          <td><span class="tag">${escapeHtml(item.network)}</span></td>
+          <td>${renderStatus(item.depositStatus)}</td>
+          <td>${renderStatus(item.withdrawStatus)}</td>
+          <td>${escapeHtml(item.updatedAt)}</td>
+          <td>${renderNote(item.note)}</td>
+        </tr>
+      `;
+    }
+
+    function renderNote(note) {
+      if (!note) {
+        return `<span class="note">-</span>`;
+      }
+
+      const text = String(note);
+      if (text.length <= 64) {
+        return `<span class="note">${escapeHtml(text)}</span>`;
+      }
+
+      return `
+        <span class="note">
+          <details>
+            <summary>${escapeHtml(text.slice(0, 64))}...</summary>
+            <pre>${escapeHtml(text)}</pre>
+          </details>
+        </span>
+      `;
+    }
+
+    function renderExchangeLogo(exchange) {
+      const logoUrl = EXCHANGE_LOGOS[exchange];
+      const fallback = escapeHtml(exchange.slice(0, 1));
+
+      if (!logoUrl) {
+        return `<span class="logo">${fallback}</span>`;
+      }
+
+      return `
+        <span class="logo">
+          <img
+            src="${logoUrl}"
+            alt="${escapeHtml(exchange)} logo"
+            loading="lazy"
+            onerror="this.hidden=true;this.nextElementSibling.hidden=false;"
+          />
+          <span hidden>${fallback}</span>
+        </span>
+      `;
+    }
+
+    function renderStatus(status) {
+      if (status === "unknown") {
+        return `<span class="status unknown">待配置</span>`;
+      }
+
+      const isOpen = status === "open";
+      return `<span class="status ${isOpen ? "open" : "closed"}">${isOpen ? "开启" : "暂停"}</span>`;
+    }
+
+    function setLoading(isLoading) {
+      refreshButton.disabled = isLoading;
+      queryButton.disabled = isLoading;
+      refreshButton.classList.toggle("loading", isLoading);
+    }
+
+    function formatDateTime(date) {
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    loadStatuses();
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "exchange-status-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Crypto exchange deposit and withdrawal status monitor",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
